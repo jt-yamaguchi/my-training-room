@@ -1,0 +1,3 @@
+# sdk env install / sdk env で自動適用
+java=17.0.13-tem
+maven=3.9.9

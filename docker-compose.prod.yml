@@ -1,0 +1,58 @@
+# 本番用(Lightsail): 開発と同じ役割分担を全てコンテナで再現する
+# 前提: docs/deploy-lp.md でサーバー構築と証明書取得が完了していること
+# ローカルでの事前確認: docker compose -f docker-compose.prod.yml up --build
+services:
+  web:
+    build:
+      context: .            # frontend/ を参照するためコンテキストはリポジトリルート
+      dockerfile: web/Dockerfile
+    container_name: training-web
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+      DOMAIN_APP: app.${DOMAIN}   # アプリ用URL(どの課題リポでも同じ。公開するリポを入れ替えて使う)
+      DOMAIN_LP: lp.${DOMAIN}
+      TZ: Asia/Tokyo
+    volumes:
+      - ./lp/site:/usr/share/nginx/lp:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    depends_on:
+      backend:
+        condition: service_started
+    restart: unless-stopped
+
+  backend:
+    build: ./backend
+    container_name: training-backend
+    environment:
+      DB_HOST: db
+      DB_NAME: ${DB_NAME:-appdb}
+      DB_USER: ${DB_USER:-app}
+      DB_PASSWORD: ${DB_PASSWORD}
+      TZ: Asia/Tokyo
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:16
+    container_name: training-db
+    environment:
+      POSTGRES_DB: ${DB_NAME:-appdb}
+      POSTGRES_USER: ${DB_USER:-app}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      TZ: Asia/Tokyo
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-app} -d ${DB_NAME:-appdb}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  db-data:

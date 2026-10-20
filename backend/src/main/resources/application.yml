@@ -1,0 +1,22 @@
+spring:
+  application:
+    name: training-backend
+  datasource:
+    # 環境依存値は環境変数で上書きする(ローカルは既定値で動く)
+    url: jdbc:postgresql://${DB_HOST:localhost}:5432/${DB_NAME:appdb}
+    username: ${DB_USER:app}
+    password: ${DB_PASSWORD:change-me-local}
+  jpa:
+    hibernate:
+      # スキーマはFlywayが管理する。validate から変更してはいけない
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+
+server:
+  port: 8080
+
+springdoc:
+  swagger-ui:
+    path: /api/docs

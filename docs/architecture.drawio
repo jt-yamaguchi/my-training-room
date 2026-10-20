@@ -1,0 +1,189 @@
+<mxfile host="app.diagrams.net">
+  <diagram name="全体像" id="overview">
+    <mxGraphModel dx="1000" dy="700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="760" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <mxCell id="ov-local" value="ローカル開発環境(Windows 11)" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=14;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="40" y="60" width="460" height="570" as="geometry" />
+        </mxCell>
+        <mxCell id="ov-wsl" value="WSL2: Ubuntu 22.04" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fillColor=none;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="60" y="100" width="420" height="440" as="geometry" />
+        </mxCell>
+        <mxCell id="ov-vscode" value="VSCode + Claude Code&lt;br&gt;CLAUDE.md の指示で設計・実装・テストを生成" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="80" y="140" width="380" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="ov-direct" value="WSL上で直接起動(開発ループ優先・方式B)" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;dashed=1;fillColor=none;strokeColor=#6c8ebf;" vertex="1" parent="1">
+          <mxGeometry x="80" y="220" width="380" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="ov-fe" value="frontend&lt;br&gt;Vite dev :5173" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="95" y="260" width="170" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="ov-be" value="backend&lt;br&gt;Spring Boot :8080" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="280" y="260" width="170" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="ov-docker" value="Docker Engine + Compose(Docker Desktop 不使用)" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="80" y="390" width="380" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="ov-db" value="db&lt;br&gt;PostgreSQL 16 :5432" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="140" y="430" width="260" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="ov-student" value="受講者(Claude Code に指示して開発)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="150" y="670" width="240" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="ov-e-student" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" edge="1" parent="1" source="ov-student" target="ov-local">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ov-github" value="GitHub(個人アカウント)" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=14;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="560" y="100" width="330" height="440" as="geometry" />
+        </mxCell>
+        <mxCell id="ov-template" value="テンプレートリポジトリ&lt;br&gt;CLAUDE.md / compose / CI設定&lt;br&gt;docs(setup・deploy・FAQ・本図)&lt;br&gt;タスク管理CRUDのお手本実装" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="580" y="140" width="290" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="ov-ci" value="GitHub Actions(CI)&lt;br&gt;mvn verify / lint / test / docker build" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="580" y="310" width="290" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="ov-flow" value="GitHub Flow&lt;br&gt;PRテンプレート / AIレビュー" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#9673a6;" vertex="1" parent="1">
+          <mxGeometry x="580" y="420" width="290" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ov-ls" value="本番: AWS Lightsail $5プラン(スワップ2GB)" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=14;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="950" y="60" width="410" height="570" as="geometry" />
+        </mxCell>
+        <mxCell id="ov-compose" value="Docker Compose(docker-compose.prod.yml)" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fillColor=none;strokeColor=#d79b00;" vertex="1" parent="1">
+          <mxGeometry x="970" y="100" width="370" height="390" as="geometry" />
+        </mxCell>
+        <mxCell id="ov-web" value="web: nginx :80 / :443&lt;br&gt;HTTPS終端 / React静的配信 / /api 転送" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="150" width="310" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="ov-lsbe" value="backend&lt;br&gt;Spring Boot :8080" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="280" width="310" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="ov-lsdb" value="db&lt;br&gt;PostgreSQL 16" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="390" width="310" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="ov-e-webbe" value="/api → backend:8080" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="ov-web" target="ov-lsbe">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ov-e-bedb" value="db:5432" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="ov-lsbe" target="ov-lsdb">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ov-certbot" value="certbot(Let's Encrypt)/ 証明書を web にマウント" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d79b00;dashed=1;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="510" width="310" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="ov-user" value="利用者(ブラウザ)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="1">
+          <mxGeometry x="1030" y="670" width="240" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="ov-e-user" value="HTTPS(443)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=0;entryX=0.5;entryY=1;" edge="1" parent="1" source="ov-user" target="ov-ls">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ov-e-push" value="git push / PR" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.35;entryX=0;entryY=0.35;" edge="1" parent="1" source="ov-local" target="ov-github">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ov-e-template" value="Use this template で開始" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0;exitY=0.65;entryX=1;entryY=0.65;" edge="1" parent="1" source="ov-github" target="ov-local">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ov-e-deploy" value="デプロイ(git pull + up --build)" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.45;entryX=0;entryY=0.45;" edge="1" parent="1" source="ov-github" target="ov-ls">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+  <diagram name="ローカル開発の通信経路" id="local-network">
+    <mxGraphModel dx="1000" dy="700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="640" math="0" shadow="0">
+      <root>
+        <mxCell id="l0" />
+        <mxCell id="l1" parent="l0" />
+
+        <mxCell id="ln-host" value="ホストOS(Windows)" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=14;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="l1">
+          <mxGeometry x="40" y="40" width="760" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="ln-browser" value="ブラウザ&lt;br&gt;Reactはここで実行される" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="l1">
+          <mxGeometry x="70" y="90" width="240" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ln-wsl" value="WSL2: Ubuntu 22.04" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=14;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="l1">
+          <mxGeometry x="40" y="220" width="760" height="300" as="geometry" />
+        </mxCell>
+        <mxCell id="ln-vite" value="Vite dev server :5173&lt;br&gt;/api を proxy 転送" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="l1">
+          <mxGeometry x="70" y="290" width="220" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="ln-boot" value="Spring Boot :8080&lt;br&gt;WSL上で直接起動" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="l1">
+          <mxGeometry x="330" y="290" width="220" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="ln-docker" value="Docker Engine" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fillColor=#f5f5f5;strokeColor=#666666;" vertex="1" parent="l1">
+          <mxGeometry x="590" y="260" width="190" height="180" as="geometry" />
+        </mxCell>
+        <mxCell id="ln-db" value="db&lt;br&gt;PostgreSQL 16&lt;br&gt;:5432 を公開" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="l1">
+          <mxGeometry x="605" y="300" width="160" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ln-e1" value="localhost:5173" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="l1" source="ln-browser" target="ln-vite">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ln-e2" value="localhost:8080" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="l1" source="ln-vite" target="ln-boot">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ln-e3" value="localhost:5432" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="l1" source="ln-boot" target="ln-db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ln-note" value="方式B: 毎分書き換える frontend / backend は直接起動して開発ループ(ホットリロード・デバッガ)を速くし、変更しない DB だけコンテナで全員揃える。&lt;br&gt;React のコードには相対パス /api のみを書く(絶対URLの直書きは禁止・CLAUDE.md 参照)" style="text;html=1;whiteSpace=wrap;align=left;verticalAlign=top;" vertex="1" parent="l1">
+          <mxGeometry x="40" y="550" width="760" height="60" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+
+  <diagram name="本番構成(Lightsail)" id="prod-network">
+    <mxGraphModel dx="1000" dy="700" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="860" pageHeight="700" math="0" shadow="0">
+      <root>
+        <mxCell id="p0" />
+        <mxCell id="p1" parent="p0" />
+
+        <mxCell id="pr-user" value="利用者ブラウザ" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;" vertex="1" parent="p1">
+          <mxGeometry x="120" y="40" width="220" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pr-ls" value="AWS Lightsail(Ubuntu 22.04 / 静的IP / スワップ2GB)" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=14;fillColor=#ffe6cc;strokeColor=#d79b00;" vertex="1" parent="p1">
+          <mxGeometry x="40" y="160" width="780" height="460" as="geometry" />
+        </mxCell>
+        <mxCell id="pr-net" value="Dockerネットワーク(docker-compose.prod.yml)" style="rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fillColor=none;strokeColor=#9673a6;dashed=1;" vertex="1" parent="p1">
+          <mxGeometry x="70" y="210" width="480" height="380" as="geometry" />
+        </mxCell>
+        <mxCell id="pr-web" value="web: nginx :443&lt;br&gt;HTTPS終端 / React静的配信&lt;br&gt;/api → proxy_pass" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="p1">
+          <mxGeometry x="120" y="260" width="300" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="pr-be" value="backend&lt;br&gt;Spring Boot :8080" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="p1">
+          <mxGeometry x="120" y="400" width="300" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="pr-db" value="db&lt;br&gt;PostgreSQL 16" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="p1">
+          <mxGeometry x="120" y="500" width="300" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="pr-e1" value="backend:8080" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="p1" source="pr-web" target="pr-be">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pr-e2" value="db:5432" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="p1" source="pr-be" target="pr-db">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pr-certbot" value="certbot&lt;br&gt;(ホスト側で実行)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d79b00;" vertex="1" parent="p1">
+          <mxGeometry x="600" y="260" width="190" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="pr-env" value=".env(サーバー上で管理)&lt;br&gt;DB_PASSWORD / DOMAIN" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d79b00;" vertex="1" parent="p1">
+          <mxGeometry x="600" y="400" width="190" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="pr-e3" value="/etc/letsencrypt をマウント" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;exitX=0;exitY=0.5;entryX=1;entryY=0.5;" edge="1" parent="p1" source="pr-certbot" target="pr-web">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="pr-e0" value="HTTPS(443)/ DNS: 自分のドメイン → 静的IP" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="p1" source="pr-user" target="pr-web">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

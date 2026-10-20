@@ -1,0 +1,42 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC
+  "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+  "https://checkstyle.org/dtds/configuration_1_3.dtd">
+<!-- 研修用の最小限ルール: 読みやすさと事故防止に絞る -->
+<module name="Checker">
+  <property name="charset" value="UTF-8"/>
+  <property name="severity" value="error"/>
+  <module name="LineLength">
+    <property name="max" value="120"/>
+  </module>
+  <module name="FileTabCharacter"/>
+  <module name="NewlineAtEndOfFile"/>
+  <module name="TreeWalker">
+    <module name="OuterTypeFilename"/>
+    <module name="AvoidStarImport"/>
+    <module name="UnusedImports"/>
+    <module name="OneTopLevelClass"/>
+    <module name="NeedBraces"/>
+    <module name="LeftCurly"/>
+    <module name="RightCurly"/>
+    <module name="WhitespaceAround">
+      <property name="allowEmptyConstructors" value="true"/>
+      <property name="allowEmptyMethods" value="true"/>
+      <property name="allowEmptyTypes" value="true"/>
+      <property name="allowEmptyLambdas" value="true"/>
+    </module>
+    <module name="EmptyBlock"/>
+    <module name="TypeName"/>
+    <module name="MethodName"/>
+    <module name="MemberName"/>
+    <module name="ParameterName"/>
+    <module name="LocalVariableName"/>
+    <module name="ConstantName"/>
+    <module name="PackageName"/>
+    <module name="MissingSwitchDefault"/>
+    <module name="EqualsHashCode"/>
+    <module name="SimplifyBooleanExpression"/>
+    <module name="OneStatementPerLine"/>
+    <module name="MultipleVariableDeclarations"/>
+  </module>
+</module>

@@ -1,0 +1,19 @@
+# Phase 2 用: LPだけをHTTPSで公開する構成(アプリはまだ動かさない)
+# lp/site/ をそのままマウントするので、更新は git pull + 再起動のみ(ビルド不要)
+# Phase 3 でアプリを公開する際は、これを down してから docker-compose.prod.yml に切り替える
+services:
+  lp:
+    image: nginx:1.27
+    container_name: training-lp
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+      DOMAIN_LP: lp.${DOMAIN}
+      TZ: Asia/Tokyo
+    volumes:
+      - ./lp/site:/usr/share/nginx/html:ro
+      - ./lp/nginx/lp.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    restart: unless-stopped

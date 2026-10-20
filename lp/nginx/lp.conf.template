@@ -1,0 +1,26 @@
+# Phase 2 用: LPのみをHTTPSで配信する nginx 設定
+# ${DOMAIN_LP} は起動時に環境変数から展開される(docker-compose.lp.yml 参照)
+# 証明書はメインドメインとLPドメインを1枚でカバーしている(deploy-lp.md 手順参照)
+
+server {
+    listen 80;
+    server_name ${DOMAIN_LP};
+
+    location /.well-known/acme-challenge/ {
+        root /usr/share/nginx/html;
+    }
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name ${DOMAIN_LP};
+
+    ssl_certificate     /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+
+    root /usr/share/nginx/html;
+    index index.html;
+}

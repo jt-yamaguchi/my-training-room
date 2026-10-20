@@ -1,0 +1,23 @@
+# ローカル開発用: DBだけコンテナで起動する(方式B)
+# backend/frontend は WSL 上で直接起動する(README参照)
+services:
+  db:
+    image: postgres:16
+    container_name: training-db
+    environment:
+      POSTGRES_DB: ${DB_NAME:-appdb}
+      POSTGRES_USER: ${DB_USER:-app}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-change-me-local}
+      TZ: Asia/Tokyo
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-app} -d ${DB_NAME:-appdb}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  db-data:

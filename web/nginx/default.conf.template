@@ -1,0 +1,68 @@
+# 本番用 nginx 設定(${DOMAIN} / ${DOMAIN_APP} / ${DOMAIN_LP} は起動時に環境変数から展開される)
+# ドメインは全課題共通で3つに固定(どの課題リポでもこのファイルは同一):
+#   https://${DOMAIN_APP} → このリポのアプリ(Reactのビルド成果物)
+#   https://${DOMAIN_LP}  → LP(lp/site をマウントした静的配信)
+#   https://${DOMAIN}     → LP へリダイレクト(入口はLP)
+# 開発時は Vite dev server が同じ役割を果たしている(vite.config.ts参照)
+
+# ---- HTTP: 全ドメイン HTTPS へリダイレクト ----
+server {
+    listen 80;
+    server_name ${DOMAIN} ${DOMAIN_APP} ${DOMAIN_LP};
+
+    location /.well-known/acme-challenge/ {
+        root /usr/share/nginx/html;
+    }
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+# ---- ルートドメイン: LP へリダイレクト ----
+server {
+    listen 443 ssl;
+    server_name ${DOMAIN};
+
+    ssl_certificate     /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+
+    return 301 https://${DOMAIN_LP}$request_uri;
+}
+
+# ---- アプリ ----
+server {
+    listen 443 ssl;
+    server_name ${DOMAIN_APP};
+
+    ssl_certificate     /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+
+    root /usr/share/nginx/app;
+    index index.html;
+
+    # API は backend コンテナへ転送(Dockerネットワーク内の名前解決)
+    location /api/ {
+        proxy_pass http://backend:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # SPA: 存在しないパスは index.html にフォールバック
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}
+
+# ---- LP ----
+server {
+    listen 443 ssl;
+    server_name ${DOMAIN_LP};
+
+    ssl_certificate     /etc/letsencrypt/live/${DOMAIN}/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/${DOMAIN}/privkey.pem;
+
+    root /usr/share/nginx/lp;
+    index index.html;
+}
