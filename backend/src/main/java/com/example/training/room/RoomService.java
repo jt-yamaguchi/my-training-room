@@ -2,8 +2,11 @@ package com.example.training.room;
 
 import com.example.training.common.ConflictException;
 import com.example.training.common.NotFoundException;
+import com.example.training.reservation.ReservationRepository;
 import com.example.training.room.dto.RoomRequest;
 import com.example.training.room.dto.RoomResponse;
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -16,9 +19,13 @@ import org.springframework.transaction.annotation.Transactional;
 public class RoomService {
 
     private final RoomRepository roomRepository;
+    private final ReservationRepository reservationRepository;
+    private final Clock clock;
 
-    public RoomService(RoomRepository roomRepository) {
+    public RoomService(RoomRepository roomRepository, ReservationRepository reservationRepository, Clock clock) {
         this.roomRepository = roomRepository;
+        this.reservationRepository = reservationRepository;
+        this.clock = clock;
     }
 
     public List<RoomResponse> findAll() {
@@ -59,12 +66,16 @@ public class RoomService {
     }
 
     /**
-     * 会議室を削除する。
-     * 未来の予約がある会議室の削除拒否(409)は、予約機能(reservations テーブル)の追加時に実装する。
+     * 会議室を削除する。終了日時が現在より後の予約(進行中を含む)があれば409とする(基本設計 2.5)。
+     * 過去の予約しかない場合は、会議室と一緒に削除される(FK の ON DELETE CASCADE)。
      */
     @Transactional
     public void delete(Long id) {
         Room room = getRoom(id);
+        LocalDateTime now = LocalDateTime.now(clock);
+        if (reservationRepository.existsNotFinished(id, now.toLocalDate(), now.toLocalTime())) {
+            throw new ConflictException(room.getName() + "には未来の予約があるため削除できません");
+        }
         roomRepository.delete(room);
     }
 

@@ -1,8 +1,8 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
-import type { Room, RoomRequest } from './api/types';
+import type { Reservation, ReservationRequest, Room, RoomRequest } from './api/types';
 
 // fetch をモックしてAPIなしでコンポーネントを検証する。
 // 新しい画面のテストはこのファイルの書き方を模倣すること。
@@ -30,17 +30,83 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
-// 会議室APIを再現するモック。登録・更新・削除の結果が一覧の再取得に反映される。
-// 名前の重複は API と同じく 409 を返す
-function mockRoomApi(initialRooms: Room[] = seedRooms) {
+const seedReservations: Reservation[] = [
+  reservation(1, 1, '2026-11-02', '13:00', '14:00', '振り返り', '佐藤'),
+  reservation(2, 1, '2026-11-02', '10:00', '11:00', '定例会議', '山田'),
+  reservation(3, 1, '2026-11-03', '09:00', '10:00', '朝会', '鈴木'),
+  reservation(4, 2, '2026-11-03', '15:00', '16:00', '面接', '田中'),
+];
+
+function reservation(
+  id: number,
+  roomId: number,
+  date: string,
+  startTime: string,
+  endTime: string,
+  title: string,
+  reserverName: string,
+): Reservation {
+  const roomName = seedRooms.find((r) => r.id === roomId)?.name ?? '';
+  return {
+    id,
+    roomId,
+    roomName,
+    date,
+    startTime,
+    endTime,
+    title,
+    reserverName,
+    createdAt: '2026-10-01T00:00:00+09:00',
+  };
+}
+
+// 会議室API・予約APIを再現するモック。登録・更新・削除の結果が一覧の再取得に反映される。
+// 名前の重複・時間帯の重複は API と同じく 409 を返す
+function mockApi(initialRooms: Room[] = seedRooms, initialReservations: Reservation[] = []) {
   let rooms = [...initialRooms];
+  let reservations = [...initialReservations];
   let nextId = 100;
   return vi.spyOn(globalThis, 'fetch').mockImplementation((input, init) => {
-    const url = String(input);
+    const url = new URL(String(input), 'http://localhost');
     const method = init?.method ?? 'GET';
-    const id = url.startsWith('/api/rooms/') ? Number(url.split('/').pop()) : null;
+    const id = /^\/api\/\w+\/\d+$/.test(url.pathname)
+      ? Number(url.pathname.split('/').pop())
+      : null;
 
-    if (method === 'GET' && url === '/api/rooms') {
+    if (url.pathname.startsWith('/api/reservations')) {
+      if (method === 'POST') {
+        const request = JSON.parse(String(init?.body)) as ReservationRequest;
+        const existing = reservations.find(
+          (r) =>
+            r.roomId === request.roomId &&
+            r.date === request.date &&
+            r.startTime < request.endTime &&
+            request.startTime < r.endTime,
+        );
+        const roomName = rooms.find((r) => r.id === request.roomId)?.name ?? '';
+        if (existing) {
+          return Promise.resolve(
+            jsonResponse(
+              {
+                message: `${roomName}の ${existing.startTime}〜${existing.endTime}(${existing.title})と時間が重なっています`,
+              },
+              409,
+            ),
+          );
+        }
+        const created: Reservation = {
+          id: nextId,
+          roomName,
+          ...request,
+          createdAt: '2026-11-02T10:00:00+09:00',
+        };
+        nextId += 1;
+        reservations = [...reservations, created];
+        return Promise.resolve(jsonResponse(created, 201));
+      }
+    }
+
+    if (method === 'GET' && url.pathname === '/api/rooms') {
       return Promise.resolve(jsonResponse(rooms));
     }
     if (method === 'POST' || method === 'PUT') {
@@ -67,6 +133,14 @@ function mockRoomApi(initialRooms: Room[] = seedRooms) {
   });
 }
 
+// アプリを表示し、指定したタブの画面に切り替える
+async function renderScreen(tab: '日別' | '会議室管理') {
+  const user = userEvent.setup();
+  render(<App />);
+  await user.click(screen.getByRole('button', { name: tab }));
+  return user;
+}
+
 // 一覧の中から指定した会議室の行を取得する
 function roomItem(name: string): HTMLElement {
   const item = screen.getByText(name).closest('li');
@@ -81,13 +155,20 @@ function createForm(): HTMLElement {
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  // 「今日」を 2026-11-02 に固定する(Date のみ偽装し、userEvent のタイマーは本物を使う)
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date(2026, 10, 2, 10, 0));
+});
+
+afterEach(() => {
+  vi.useRealTimers();
 });
 
 describe('会議室管理', () => {
   it('会議室一覧が表示される', async () => {
-    mockRoomApi();
+    mockApi();
 
-    render(<App />);
+    await renderScreen('会議室管理');
 
     expect(await screen.findByText('A会議室')).toBeInTheDocument();
     expect(within(roomItem('A会議室')).getByText('定員 6 名')).toBeInTheDocument();
@@ -96,18 +177,17 @@ describe('会議室管理', () => {
   });
 
   it('会議室がないときは案内を表示する', async () => {
-    mockRoomApi([]);
+    mockApi([]);
 
-    render(<App />);
+    await renderScreen('会議室管理');
 
     expect(await screen.findByText(/会議室はありません/)).toBeInTheDocument();
   });
 
   it('会議室を登録するとAPIが呼ばれ一覧が更新され、フォームが空に戻る', async () => {
-    const fetchMock = mockRoomApi();
+    const fetchMock = mockApi();
 
-    const user = userEvent.setup();
-    render(<App />);
+    const user = await renderScreen('会議室管理');
     await screen.findByText('A会議室');
 
     const form = createForm();
@@ -129,10 +209,9 @@ describe('会議室管理', () => {
   });
 
   it('備考が空なら null で登録する', async () => {
-    const fetchMock = mockRoomApi();
+    const fetchMock = mockApi();
 
-    const user = userEvent.setup();
-    render(<App />);
+    const user = await renderScreen('会議室管理');
     await screen.findByText('A会議室');
 
     const form = createForm();
@@ -149,10 +228,9 @@ describe('会議室管理', () => {
   });
 
   it('会議室名・定員が未入力、または定員が1未満の間は追加ボタンが押せない', async () => {
-    mockRoomApi();
+    mockApi();
 
-    const user = userEvent.setup();
-    render(<App />);
+    const user = await renderScreen('会議室管理');
     await screen.findByText('A会議室');
 
     const form = createForm();
@@ -171,10 +249,9 @@ describe('会議室管理', () => {
   });
 
   it('同じ名前の会議室を登録するとエラーメッセージが表示され、入力内容は残る', async () => {
-    mockRoomApi();
+    mockApi();
 
-    const user = userEvent.setup();
-    render(<App />);
+    const user = await renderScreen('会議室管理');
     await screen.findByText('A会議室');
 
     const form = createForm();
@@ -188,10 +265,9 @@ describe('会議室管理', () => {
   });
 
   it('編集ボタンで行がフォームになり、保存するとPUTが呼ばれ一覧に反映される', async () => {
-    const fetchMock = mockRoomApi();
+    const fetchMock = mockApi();
 
-    const user = userEvent.setup();
-    render(<App />);
+    const user = await renderScreen('会議室管理');
     await screen.findByText('A会議室');
 
     await user.click(screen.getByRole('button', { name: '会議室「A会議室」を編集' }));
@@ -220,10 +296,9 @@ describe('会議室管理', () => {
   });
 
   it('編集をキャンセルするとAPIを呼ばずに表示に戻る', async () => {
-    const fetchMock = mockRoomApi();
+    const fetchMock = mockApi();
 
-    const user = userEvent.setup();
-    render(<App />);
+    const user = await renderScreen('会議室管理');
     await screen.findByText('A会議室');
 
     await user.click(screen.getByRole('button', { name: '会議室「A会議室」を編集' }));
@@ -241,10 +316,9 @@ describe('会議室管理', () => {
   });
 
   it('他の会議室と同じ名前に更新するとエラーが表示され、編集フォームのまま残る', async () => {
-    mockRoomApi();
+    mockApi();
 
-    const user = userEvent.setup();
-    render(<App />);
+    const user = await renderScreen('会議室管理');
     await screen.findByText('B会議室');
 
     await user.click(screen.getByRole('button', { name: '会議室「B会議室」を編集' }));
@@ -259,10 +333,9 @@ describe('会議室管理', () => {
 
   it('確認で了承すると会議室が削除される', async () => {
     const confirmMock = vi.spyOn(window, 'confirm').mockReturnValue(true);
-    const fetchMock = mockRoomApi();
+    const fetchMock = mockApi();
 
-    const user = userEvent.setup();
-    render(<App />);
+    const user = await renderScreen('会議室管理');
     await screen.findByText('B会議室');
 
     await user.click(screen.getByRole('button', { name: '会議室「B会議室」を削除' }));
@@ -279,10 +352,9 @@ describe('会議室管理', () => {
 
   it('確認でキャンセルすると会議室は削除されない', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(false);
-    const fetchMock = mockRoomApi();
+    const fetchMock = mockApi();
 
-    const user = userEvent.setup();
-    render(<App />);
+    const user = await renderScreen('会議室管理');
     await screen.findByText('B会議室');
 
     await user.click(screen.getByRole('button', { name: '会議室「B会議室」を削除' }));
@@ -296,7 +368,7 @@ describe('会議室管理', () => {
 
   it('削除できない場合はAPIのメッセージが表示され、会議室は残る', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true);
-    const fetchMock = mockRoomApi();
+    const fetchMock = mockApi();
     const message = 'A会議室には未来の予約があるため削除できません';
     const roomApi = fetchMock.getMockImplementation();
     fetchMock.mockImplementation((input, init) =>
@@ -305,8 +377,7 @@ describe('会議室管理', () => {
         : (roomApi as typeof fetch)(input, init),
     );
 
-    const user = userEvent.setup();
-    render(<App />);
+    const user = await renderScreen('会議室管理');
     await screen.findByText('A会議室');
 
     await user.click(screen.getByRole('button', { name: '会議室「A会議室」を削除' }));
@@ -323,5 +394,153 @@ describe('会議室管理', () => {
     render(<App />);
 
     expect(await screen.findByText('サーバーエラー')).toBeInTheDocument();
+  });
+});
+
+// 予約登録フォーム
+function reservationForm(): HTMLElement {
+  return screen.getByRole('button', { name: '予約する' }).closest('form') as HTMLElement;
+}
+
+async function fillReservationForm(
+  user: ReturnType<typeof userEvent.setup>,
+  values: {
+    roomId: string;
+    startTime: string;
+    endTime: string;
+    title: string;
+    reserverName: string;
+  },
+) {
+  const form = reservationForm();
+  await user.selectOptions(within(form).getByLabelText('会議室'), values.roomId);
+  await user.selectOptions(within(form).getByLabelText('開始時刻'), values.startTime);
+  await user.selectOptions(within(form).getByLabelText('終了時刻'), values.endTime);
+  await user.type(within(form).getByLabelText('件名'), values.title);
+  await user.type(within(form).getByLabelText('予約者名'), values.reserverName);
+}
+
+describe('予約登録', () => {
+  it('初期表示は日別画面で、予約日の初期値は今日', async () => {
+    mockApi();
+
+    render(<App />);
+
+    const form = await screen.findByRole('button', { name: '予約する' });
+    expect(within(form.closest('form') as HTMLElement).getByLabelText('予約日')).toHaveValue(
+      '2026-11-02',
+    );
+  });
+
+  it('時刻の選択肢は15分刻みの 00:00〜23:45', async () => {
+    mockApi();
+
+    render(<App />);
+    await screen.findByRole('button', { name: '予約する' });
+
+    const options = within(within(reservationForm()).getByLabelText('開始時刻'))
+      .getAllByRole('option')
+      .map((o) => (o as HTMLOptionElement).value)
+      .filter((v) => v !== '');
+    expect(options).toHaveLength(96);
+    expect(options.slice(0, 3)).toEqual(['00:00', '00:15', '00:30']);
+    expect(options[options.length - 1]).toBe('23:45');
+  });
+
+  it('予約を登録するとAPIが呼ばれ完了メッセージが表示され、件名と時刻が空に戻る', async () => {
+    const fetchMock = mockApi();
+
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByRole('button', { name: '予約する' });
+
+    await fillReservationForm(user, {
+      roomId: '1',
+      startTime: '10:00',
+      endTime: '11:00',
+      title: '定例会議',
+      reserverName: '山田',
+    });
+    await user.click(screen.getByRole('button', { name: '予約する' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'A会議室 の 2026-11-02 10:00〜11:00(定例会議)を予約しました',
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/reservations',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          roomId: 1,
+          date: '2026-11-02',
+          startTime: '10:00',
+          endTime: '11:00',
+          title: '定例会議',
+          reserverName: '山田',
+        }),
+      }),
+    );
+    const form = reservationForm();
+    expect(within(form).getByLabelText('件名')).toHaveValue('');
+    expect(within(form).getByLabelText('開始時刻')).toHaveValue('');
+    expect(within(form).getByLabelText('予約者名')).toHaveValue('山田');
+  });
+
+  it('必須項目が未入力の間は予約ボタンが押せない', async () => {
+    mockApi();
+
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByRole('button', { name: '予約する' });
+
+    const form = reservationForm();
+    const button = within(form).getByRole('button', { name: '予約する' });
+    expect(button).toBeDisabled();
+
+    await user.selectOptions(within(form).getByLabelText('会議室'), '1');
+    await user.selectOptions(within(form).getByLabelText('開始時刻'), '10:00');
+    await user.selectOptions(within(form).getByLabelText('終了時刻'), '11:00');
+    await user.type(within(form).getByLabelText('件名'), '定例会議');
+    expect(button).toBeDisabled();
+
+    await user.type(within(form).getByLabelText('予約者名'), '   ');
+    expect(button).toBeDisabled();
+
+    await user.type(within(form).getByLabelText('予約者名'), '山田');
+    expect(button).toBeEnabled();
+  });
+
+  it('時間帯が重なる予約はエラーメッセージが表示され、入力内容は残る', async () => {
+    mockApi(seedRooms, seedReservations);
+
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByRole('button', { name: '予約する' });
+
+    await fillReservationForm(user, {
+      roomId: '1',
+      startTime: '10:30',
+      endTime: '11:30',
+      title: '打合せ',
+      reserverName: '佐藤',
+    });
+    await user.click(screen.getByRole('button', { name: '予約する' }));
+
+    expect(
+      await screen.findByText('A会議室の 10:00〜11:00(定例会議)と時間が重なっています'),
+    ).toBeInTheDocument();
+    expect(within(reservationForm()).getByLabelText('件名')).toHaveValue('打合せ');
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
+  it('会議室がないときは会議室管理への案内を表示する', async () => {
+    mockApi([]);
+
+    render(<App />);
+
+    expect(
+      await screen.findByText('会議室はありません。会議室管理から登録してください。'),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: '予約する' })).not.toBeInTheDocument();
   });
 });

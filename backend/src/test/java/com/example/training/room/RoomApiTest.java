@@ -2,6 +2,7 @@ package com.example.training.room;
 
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -9,12 +10,16 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.example.training.FixedClockConfig;
 import com.jayway.jsonpath.JsonPath;
+import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,15 +27,23 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * 会議室APIの結合テスト。H2(PostgreSQL互換モード)+ Flyway で実行される。
  * 初期データはないため、各テストで必要な会議室を登録してから検証する。
+ * 現在時刻は FixedClockConfig で 2026-11-02 10:00(日本時間)に固定している。
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@Import(FixedClockConfig.class)
 @Transactional
 class RoomApiTest {
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    @Autowired
+    private EntityManager entityManager;
 
     @Test
     void 会議室を登録できる() throws Exception {
@@ -269,6 +282,55 @@ class RoomApiTest {
         mockMvc.perform(delete("/api/rooms/99999"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
+    void 未来の予約がある会議室の削除は409になり_会議室は残る() throws Exception {
+        Integer id = createRoom("A会議室", 6);
+        insertReservation(id, "2026-11-03", "10:00", "11:00");
+
+        mockMvc.perform(delete("/api/rooms/" + id))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("A会議室には未来の予約があるため削除できません"));
+
+        mockMvc.perform(get("/api/rooms/" + id))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void 進行中の予約がある会議室の削除は409になる() throws Exception {
+        Integer id = createRoom("A会議室", 6);
+        insertReservation(id, "2026-11-02", "09:30", "10:30");
+
+        mockMvc.perform(delete("/api/rooms/" + id))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void 過去の予約しかない会議室は削除でき_過去の予約も削除される() throws Exception {
+        Integer id = createRoom("A会議室", 6);
+        insertReservation(id, "2026-11-01", "10:00", "11:00");
+        // 終了時刻ちょうど(現在 10:00)の予約は終了済みとして扱う
+        insertReservation(id, "2026-11-02", "09:00", "10:00");
+
+        mockMvc.perform(delete("/api/rooms/" + id))
+                .andExpect(status().isNoContent());
+
+        // テストは1トランザクション内で動くため、削除をDBへ反映してから件数を確認する
+        entityManager.flush();
+        Integer remaining = jdbcTemplate.queryForObject(
+                "SELECT COUNT(*) FROM reservations WHERE room_id = ?", Integer.class, id);
+        assertEquals(0, remaining);
+    }
+
+    /**
+     * 予約をDBへ直接登録する。過去・進行中の予約はAPIからは登録できない(過去日時は400)ため。
+     */
+    private void insertReservation(Integer roomId, String date, String startTime, String endTime) {
+        jdbcTemplate.update("""
+                INSERT INTO reservations (room_id, reservation_date, start_time, end_time, title, reserver_name)
+                VALUES (?, CAST(? AS DATE), CAST(? AS TIME), CAST(? AS TIME), '定例会議', '山田')
+                """, roomId, date, startTime, endTime);
     }
 
     /** 会議室を登録し、そのIDを返す。 */

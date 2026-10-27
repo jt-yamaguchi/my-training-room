@@ -27,7 +27,7 @@ export async function updateRoom(id: number, request: RoomRequest): Promise<Room
   return handleResponse<Room>(res);
 }
 
-// 未来の予約がある会議室は 409 になる(予約機能の追加後)
+// 未来の予約(進行中を含む)がある会議室は 409 になる
 export async function deleteRoom(id: number): Promise<void> {
   const res = await fetch(`/api/rooms/${id}`, { method: 'DELETE' });
   return handleResponse<void>(res);
