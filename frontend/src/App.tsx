@@ -1,15 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createRoom, deleteRoom, fetchRooms, updateRoom } from './api/rooms';
 import type { Room, RoomRequest } from './api/types';
+import DailyReservations from './components/DailyReservations';
 import RoomManagement from './components/RoomManagement';
 
-// 画面切替タブ。日別予約状況(S-01)・会議室別予約(S-02)は予約機能の追加時にここへ加える
-type Screen = 'rooms';
+// 画面切替タブ(基本設計 2.4)。URLは / のまま state で切り替える
+type Screen = 'daily' | 'rooms';
 
-const SCREENS: Array<{ key: Screen; label: string }> = [{ key: 'rooms', label: '会議室管理' }];
+const SCREENS: Array<{ key: Screen; label: string }> = [
+  { key: 'daily', label: '日別' },
+  { key: 'rooms', label: '会議室管理' },
+];
 
 export default function App() {
-  const [screen, setScreen] = useState<Screen>('rooms');
+  const [screen, setScreen] = useState<Screen>('daily');
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(true);
   // API失敗時のメッセージ。画面上部に表示する(基本設計「共通 / エラー表示」)
@@ -63,7 +67,10 @@ export default function App() {
               type="button"
               className={s.key === screen ? 'tab active' : 'tab'}
               aria-current={s.key === screen ? 'page' : undefined}
-              onClick={() => setScreen(s.key)}
+              onClick={() => {
+                setError(null);
+                setScreen(s.key);
+              }}
             >
               {s.label}
             </button>
@@ -72,6 +79,8 @@ export default function App() {
       </header>
 
       {error && <p className="error">{error}</p>}
+
+      {screen === 'daily' && <DailyReservations rooms={rooms} onError={setError} />}
 
       {screen === 'rooms' && (
         <RoomManagement
