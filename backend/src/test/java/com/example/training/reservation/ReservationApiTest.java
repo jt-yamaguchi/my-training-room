@@ -1,7 +1,7 @@
 package com.example.training.reservation;
 
 import static org.hamcrest.Matchers.notNullValue;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -16,7 +16,6 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
@@ -39,9 +38,6 @@ class ReservationApiTest {
 
     @Autowired
     private MockMvc mockMvc;
-
-    @Autowired
-    private JdbcTemplate jdbcTemplate;
 
     private Integer roomA;
     private Integer roomB;
@@ -85,9 +81,8 @@ class ReservationApiTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.message").value("A会議室の 10:00〜11:00(定例会議)と時間が重なっています"));
 
-        Integer count = jdbcTemplate.queryForObject(
-                "SELECT COUNT(*) FROM reservations WHERE room_id = ?", Integer.class, roomA);
-        assertEquals(1, count);
+        mockMvc.perform(get("/api/reservations").param("date", TOMORROW))
+                .andExpect(jsonPath("$.length()").value(1));
     }
 
     @Test
@@ -121,6 +116,16 @@ class ReservationApiTest {
 
         postReservation(roomA, DAY_AFTER_TOMORROW, "10:00", "11:00", "定例会議", "山田")
                 .andExpect(status().isCreated());
+    }
+
+    @Test
+    void 予約を取り消すとその時間帯に再び予約できる() throws Exception {
+        Integer id = createReservation(roomA, TOMORROW, "10:00", "11:00");
+
+        mockMvc.perform(delete("/api/reservations/" + id))
+                .andExpect(status().isNoContent());
+
+        postReservation(roomA, TOMORROW, "10:30", "11:30", "打合せ", "佐藤").andExpect(status().isCreated());
     }
 
     @Test
@@ -225,7 +230,77 @@ class ReservationApiTest {
                 .andExpect(jsonPath("$.message").exists());
     }
 
-    // ---- 1件取得(A-08) ----
+    // ---- 照会(A-06 / A-07 / A-08) ----
+
+    @Test
+    void 日付を指定するとその日の全会議室の予約を会議室ID_開始時刻順で取得できる() throws Exception {
+        createReservation(roomB, TOMORROW, "09:00", "10:00");
+        createReservation(roomA, TOMORROW, "13:00", "14:00");
+        createReservation(roomA, TOMORROW, "10:00", "11:00");
+        createReservation(roomA, DAY_AFTER_TOMORROW, "10:00", "11:00");
+
+        mockMvc.perform(get("/api/reservations").param("date", TOMORROW))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(3))
+                .andExpect(jsonPath("$[0].roomName").value("A会議室"))
+                .andExpect(jsonPath("$[0].startTime").value("10:00"))
+                .andExpect(jsonPath("$[1].roomName").value("A会議室"))
+                .andExpect(jsonPath("$[1].startTime").value("13:00"))
+                .andExpect(jsonPath("$[2].roomName").value("B会議室"));
+    }
+
+    @Test
+    void 予約のない日付は空の一覧になる() throws Exception {
+        mockMvc.perform(get("/api/reservations").param("date", TOMORROW))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
+
+    @Test
+    void 会議室を指定するとその会議室の予約を日付_開始時刻順で取得できる() throws Exception {
+        createReservation(roomA, DAY_AFTER_TOMORROW, "09:00", "10:00");
+        createReservation(roomA, TOMORROW, "13:00", "14:00");
+        createReservation(roomA, TOMORROW, "10:00", "11:00");
+        createReservation(roomB, TOMORROW, "10:00", "11:00");
+
+        mockMvc.perform(get("/api/reservations").param("roomId", String.valueOf(roomA)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(3))
+                .andExpect(jsonPath("$[0].date").value(TOMORROW))
+                .andExpect(jsonPath("$[0].startTime").value("10:00"))
+                .andExpect(jsonPath("$[1].date").value(TOMORROW))
+                .andExpect(jsonPath("$[1].startTime").value("13:00"))
+                .andExpect(jsonPath("$[2].date").value(DAY_AFTER_TOMORROW));
+    }
+
+    @Test
+    void 日付と会議室を両方指定するとAND条件で絞り込む() throws Exception {
+        createReservation(roomA, TOMORROW, "10:00", "11:00");
+        createReservation(roomA, DAY_AFTER_TOMORROW, "10:00", "11:00");
+        createReservation(roomB, TOMORROW, "10:00", "11:00");
+
+        mockMvc.perform(get("/api/reservations")
+                        .param("date", TOMORROW)
+                        .param("roomId", String.valueOf(roomA)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].roomId").value(roomA))
+                .andExpect(jsonPath("$[0].date").value(TOMORROW));
+    }
+
+    @Test
+    void 照会条件を指定しないと400になる() throws Exception {
+        mockMvc.perform(get("/api/reservations"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    @Test
+    void 照会の日付の形式が不正だと400になる() throws Exception {
+        mockMvc.perform(get("/api/reservations").param("date", "2026/11/03"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").exists());
+    }
 
     @Test
     void 予約を1件取得できる() throws Exception {
@@ -240,6 +315,26 @@ class ReservationApiTest {
     @Test
     void 存在しない予約の取得は404になる() throws Exception {
         mockMvc.perform(get("/api/reservations/99999"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").exists());
+    }
+
+    // ---- 取り消し(A-10) ----
+
+    @Test
+    void 予約を取り消せる() throws Exception {
+        Integer id = createReservation(roomA, TOMORROW, "10:00", "11:00");
+
+        mockMvc.perform(delete("/api/reservations/" + id))
+                .andExpect(status().isNoContent());
+
+        mockMvc.perform(get("/api/reservations/" + id))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void 存在しない予約の取り消しは404になる() throws Exception {
+        mockMvc.perform(delete("/api/reservations/99999"))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").exists());
     }

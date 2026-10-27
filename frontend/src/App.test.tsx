@@ -74,6 +74,23 @@ function mockApi(initialRooms: Room[] = seedRooms, initialReservations: Reservat
       : null;
 
     if (url.pathname.startsWith('/api/reservations')) {
+      if (method === 'GET') {
+        const date = url.searchParams.get('date');
+        const roomId = url.searchParams.get('roomId');
+        const found = reservations
+          .filter(
+            (r) =>
+              (date === null || r.date === date) &&
+              (roomId === null || r.roomId === Number(roomId)),
+          )
+          .sort(
+            (a, b) =>
+              a.date.localeCompare(b.date) ||
+              a.roomId - b.roomId ||
+              a.startTime.localeCompare(b.startTime),
+          );
+        return Promise.resolve(jsonResponse(found));
+      }
       if (method === 'POST') {
         const request = JSON.parse(String(init?.body)) as ReservationRequest;
         const existing = reservations.find(
@@ -103,6 +120,10 @@ function mockApi(initialRooms: Room[] = seedRooms, initialReservations: Reservat
         nextId += 1;
         reservations = [...reservations, created];
         return Promise.resolve(jsonResponse(created, 201));
+      }
+      if (method === 'DELETE') {
+        reservations = reservations.filter((r) => r.id !== id);
+        return Promise.resolve(new Response(null, { status: 204 }));
       }
     }
 
@@ -134,7 +155,7 @@ function mockApi(initialRooms: Room[] = seedRooms, initialReservations: Reservat
 }
 
 // アプリを表示し、指定したタブの画面に切り替える
-async function renderScreen(tab: '日別' | '会議室管理') {
+async function renderScreen(tab: '日別' | '会議室別' | '会議室管理') {
   const user = userEvent.setup();
   render(<App />);
   await user.click(screen.getByRole('button', { name: tab }));
@@ -397,6 +418,11 @@ describe('会議室管理', () => {
   });
 });
 
+// 日別画面で、指定した会議室のカードを取得する
+function dailyRoom(name: string): HTMLElement {
+  return screen.getByRole('listitem', { name: `${name}の予約` });
+}
+
 // 予約登録フォーム
 function reservationForm(): HTMLElement {
   return screen.getByRole('button', { name: '予約する' }).closest('form') as HTMLElement;
@@ -420,23 +446,56 @@ async function fillReservationForm(
   await user.type(within(form).getByLabelText('予約者名'), values.reserverName);
 }
 
-describe('予約登録', () => {
-  it('初期表示は日別画面で、予約日の初期値は今日', async () => {
-    mockApi();
+describe('日別予約状況', () => {
+  it('初期表示は今日の日別画面で、会議室ごとの予約が開始時刻順に表示される', async () => {
+    const fetchMock = mockApi(seedRooms, seedReservations);
 
     render(<App />);
 
-    const form = await screen.findByRole('button', { name: '予約する' });
-    expect(within(form.closest('form') as HTMLElement).getByLabelText('予約日')).toHaveValue(
-      '2026-11-02',
-    );
+    expect(await screen.findByText('定例会議')).toBeInTheDocument();
+    expect(screen.getByLabelText('表示する日付')).toHaveValue('2026-11-02');
+    expect(fetchMock).toHaveBeenCalledWith('/api/reservations?date=2026-11-02');
+
+    const items = within(dailyRoom('A会議室')).getAllByRole('listitem');
+    expect(items).toHaveLength(2);
+    expect(within(items[0]).getByText('10:00〜11:00')).toBeInTheDocument();
+    expect(within(items[0]).getByText('定例会議')).toBeInTheDocument();
+    expect(within(items[0]).getByText('山田')).toBeInTheDocument();
+    expect(within(items[1]).getByText('13:00〜14:00')).toBeInTheDocument();
+    // 翌日の予約は表示しない
+    expect(screen.queryByText('朝会')).not.toBeInTheDocument();
+    // 予約のない会議室は「予約なし」
+    expect(within(dailyRoom('B会議室')).getByText('予約なし')).toBeInTheDocument();
+  });
+
+  it('翌日・前日ボタンで日付が切り替わり、その日の予約を再取得する', async () => {
+    const fetchMock = mockApi(seedRooms, seedReservations);
+
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText('定例会議');
+
+    await user.click(screen.getByRole('button', { name: '翌日' }));
+
+    expect(await screen.findByText('朝会')).toBeInTheDocument();
+    expect(screen.getByLabelText('表示する日付')).toHaveValue('2026-11-03');
+    expect(within(dailyRoom('B会議室')).getByText('面接')).toBeInTheDocument();
+    expect(screen.queryByText('定例会議')).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith('/api/reservations?date=2026-11-03');
+    // フォームの日付も選択中の日付に追従する
+    expect(within(reservationForm()).getByLabelText('予約日')).toHaveValue('2026-11-03');
+
+    await user.click(screen.getByRole('button', { name: '前日' }));
+
+    expect(await screen.findByText('定例会議')).toBeInTheDocument();
+    expect(screen.getByLabelText('表示する日付')).toHaveValue('2026-11-02');
   });
 
   it('時刻の選択肢は15分刻みの 00:00〜23:45', async () => {
     mockApi();
 
     render(<App />);
-    await screen.findByRole('button', { name: '予約する' });
+    await screen.findAllByText('予約なし');
 
     const options = within(within(reservationForm()).getByLabelText('開始時刻'))
       .getAllByRole('option')
@@ -447,12 +506,12 @@ describe('予約登録', () => {
     expect(options[options.length - 1]).toBe('23:45');
   });
 
-  it('予約を登録するとAPIが呼ばれ完了メッセージが表示され、件名と時刻が空に戻る', async () => {
+  it('予約を登録するとAPIが呼ばれ一覧に反映され、件名と時刻が空に戻る', async () => {
     const fetchMock = mockApi();
 
     const user = userEvent.setup();
     render(<App />);
-    await screen.findByRole('button', { name: '予約する' });
+    await screen.findAllByText('予約なし');
 
     await fillReservationForm(user, {
       roomId: '1',
@@ -463,9 +522,7 @@ describe('予約登録', () => {
     });
     await user.click(screen.getByRole('button', { name: '予約する' }));
 
-    expect(await screen.findByRole('status')).toHaveTextContent(
-      'A会議室 の 2026-11-02 10:00〜11:00(定例会議)を予約しました',
-    );
+    expect(await within(dailyRoom('A会議室')).findByText('定例会議')).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
       '/api/reservations',
       expect.objectContaining({
@@ -486,12 +543,35 @@ describe('予約登録', () => {
     expect(within(form).getByLabelText('予約者名')).toHaveValue('山田');
   });
 
+  it('別の日付で登録すると、登録した日の一覧に切り替わる', async () => {
+    mockApi();
+
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findAllByText('予約なし');
+
+    const form = reservationForm();
+    await user.clear(within(form).getByLabelText('予約日'));
+    await user.type(within(form).getByLabelText('予約日'), '2026-11-05');
+    await fillReservationForm(user, {
+      roomId: '2',
+      startTime: '09:00',
+      endTime: '09:30',
+      title: '朝会',
+      reserverName: '鈴木',
+    });
+    await user.click(screen.getByRole('button', { name: '予約する' }));
+
+    expect(await within(dailyRoom('B会議室')).findByText('朝会')).toBeInTheDocument();
+    expect(screen.getByLabelText('表示する日付')).toHaveValue('2026-11-05');
+  });
+
   it('必須項目が未入力の間は予約ボタンが押せない', async () => {
     mockApi();
 
     const user = userEvent.setup();
     render(<App />);
-    await screen.findByRole('button', { name: '予約する' });
+    await screen.findAllByText('予約なし');
 
     const form = reservationForm();
     const button = within(form).getByRole('button', { name: '予約する' });
@@ -515,7 +595,7 @@ describe('予約登録', () => {
 
     const user = userEvent.setup();
     render(<App />);
-    await screen.findByRole('button', { name: '予約する' });
+    await screen.findByText('定例会議');
 
     await fillReservationForm(user, {
       roomId: '1',
@@ -530,17 +610,97 @@ describe('予約登録', () => {
       await screen.findByText('A会議室の 10:00〜11:00(定例会議)と時間が重なっています'),
     ).toBeInTheDocument();
     expect(within(reservationForm()).getByLabelText('件名')).toHaveValue('打合せ');
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+    expect(within(dailyRoom('A会議室')).getAllByRole('listitem')).toHaveLength(2);
   });
 
-  it('会議室がないときは会議室管理への案内を表示する', async () => {
-    mockApi([]);
+  it('確認で了承すると予約が取り消される', async () => {
+    const confirmMock = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const fetchMock = mockApi(seedRooms, seedReservations);
 
+    const user = userEvent.setup();
     render(<App />);
+    await screen.findByText('定例会議');
 
-    expect(
-      await screen.findByText('会議室はありません。会議室管理から登録してください。'),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: '予約する' })).not.toBeInTheDocument();
+    await user.click(
+      screen.getByRole('button', { name: '予約「定例会議」(10:00〜11:00)を取り消す' }),
+    );
+
+    expect(confirmMock).toHaveBeenCalledWith(expect.stringContaining('定例会議'));
+    await waitFor(() => {
+      expect(screen.queryByText('定例会議')).not.toBeInTheDocument();
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/reservations/2',
+      expect.objectContaining({ method: 'DELETE' }),
+    );
+  });
+
+  it('確認でキャンセルすると予約は取り消されない', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const fetchMock = mockApi(seedRooms, seedReservations);
+
+    const user = userEvent.setup();
+    render(<App />);
+    await screen.findByText('定例会議');
+
+    await user.click(
+      screen.getByRole('button', { name: '予約「定例会議」(10:00〜11:00)を取り消す' }),
+    );
+
+    expect(screen.getByText('定例会議')).toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalledWith(
+      '/api/reservations/2',
+      expect.objectContaining({ method: 'DELETE' }),
+    );
+  });
+});
+
+describe('会議室別予約', () => {
+  it('先頭の会議室の予約が日付・開始時刻順に表示され、会議室を切り替えると再取得する', async () => {
+    const fetchMock = mockApi(seedRooms, seedReservations);
+
+    const user = await renderScreen('会議室別');
+
+    expect(await screen.findByText('朝会')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith('/api/reservations?roomId=1');
+    const items = screen.getAllByRole('listitem');
+    expect(items).toHaveLength(3);
+    expect(within(items[0]).getByText('2026-11-02')).toBeInTheDocument();
+    expect(within(items[0]).getByText('定例会議')).toBeInTheDocument();
+    expect(within(items[1]).getByText('振り返り')).toBeInTheDocument();
+    expect(within(items[2]).getByText('2026-11-03')).toBeInTheDocument();
+    expect(within(items[2]).getByText('朝会')).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText('表示する会議室'), '2');
+
+    expect(await screen.findByText('面接')).toBeInTheDocument();
+    expect(screen.queryByText('朝会')).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith('/api/reservations?roomId=2');
+  });
+
+  it('予約のない会議室は案内を表示する', async () => {
+    mockApi(seedRooms, []);
+
+    await renderScreen('会議室別');
+
+    expect(await screen.findByText('この会議室の予約はありません。')).toBeInTheDocument();
+  });
+
+  it('会議室別画面からも予約を取り消せる', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const fetchMock = mockApi(seedRooms, seedReservations);
+
+    const user = await renderScreen('会議室別');
+    await screen.findByText('朝会');
+
+    await user.click(screen.getByRole('button', { name: '予約「朝会」(09:00〜10:00)を取り消す' }));
+
+    await waitFor(() => {
+      expect(screen.queryByText('朝会')).not.toBeInTheDocument();
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/reservations/3',
+      expect.objectContaining({ method: 'DELETE' }),
+    );
   });
 });

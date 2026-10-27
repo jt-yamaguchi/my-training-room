@@ -3,12 +3,14 @@ import { createRoom, deleteRoom, fetchRooms, updateRoom } from './api/rooms';
 import type { Room, RoomRequest } from './api/types';
 import DailyReservations from './components/DailyReservations';
 import RoomManagement from './components/RoomManagement';
+import RoomReservations from './components/RoomReservations';
 
 // 画面切替タブ(基本設計 2.4)。URLは / のまま state で切り替える
-type Screen = 'daily' | 'rooms';
+type Screen = 'daily' | 'byRoom' | 'rooms';
 
 const SCREENS: Array<{ key: Screen; label: string }> = [
   { key: 'daily', label: '日別' },
+  { key: 'byRoom', label: '会議室別' },
   { key: 'rooms', label: '会議室管理' },
 ];
 
@@ -81,6 +83,8 @@ export default function App() {
       {error && <p className="error">{error}</p>}
 
       {screen === 'daily' && <DailyReservations rooms={rooms} onError={setError} />}
+
+      {screen === 'byRoom' && <RoomReservations rooms={rooms} onError={setError} />}
 
       {screen === 'rooms' && (
         <RoomManagement
